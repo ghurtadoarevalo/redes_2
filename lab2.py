@@ -14,47 +14,54 @@ def graph(datax, datay, title, ylabel, xlabel):
     matp.show()
 
 
-# -------------------------------------------------------- PUNTO 1 --------------------------------------------------------
+def graphSpectro(rate, audio):
+	f, t, Sxx = sciSig.spectrogram(audio, rate)
+	matp.pcolormesh(t, f, numpy.log10(Sxx))
+	matp.ylabel('Frequency [Hz]')
+	matp.xlabel('Time [sec]')
+	matp.colorbar()
+	matp.show()
 
-# Se lee el archivo de audio de entrada con la funcion read de scipy.
-# el cual entrega el valor del rate, ademas de un arreglo de las respectivas amplitudes del audio junto con su dtype.
+
+def createFilterPassBrand(rate,numtaps,lowFreq,highFreq):
+	#Numero de coeficientes del filtro, mas abrupto el corte del audio a medida que numtaps aumente
+	filter = sciSig.firwin(numtaps, [lowFreq,highFreq], pass_zero=False, fs=rate)
+	return filter
+
+def getFilteredAudio(data,filter):
+	rate = data[0]
+	audio = data[1]
+	convolve = sciSig.convolve(audio,filter, mode='same')
+	return convolve
+
+def showFourier(audio,labbel):
+	fourierFreq = numpy.fft.fftfreq(len(audio), 1/rate)
+	fourier = numpy.fft.fft(audio)
+	graph(fourierFreq,numpy.abs(fourier),"Gráfico amplitud vs frecuencia: Transformada de Fourier "+labbel, "Amplitud", "Frecuencia (Hz)")
+
+def showFourierInv(audio,rate,labbel):
+	fourier = numpy.fft.fft(audio)
+	fourierInv = numpy.fft.ifft(fourier)
+	time = numpy.linspace(0,len(audio)/rate, num=len(audio))
+	graph(time, fourierInv,"Gráfico amplitud vs tiempo: Transformado "+labbel, "Amplitud", "Tiempo (s)")
+	sciWav.write("handel"+labbel+".wav", rate, numpy.int16(fourierInv))
+
+
 data = sciWav.read('handel.wav')
 rate = data[0]
-audio = data[1]
+filter = createFilterPassBrand(rate,60,500,1300)
+
+originalAudio = data[1]
+filteredAudio = getFilteredAudio(data,filter)
+
+showFourier(originalAudio,"Original")
+showFourier(filteredAudio,"Filtrada")
+
+showFourierInv(originalAudio,rate,"Original")
+showFourierInv(filteredAudio,rate,"Filtrada")
+
+graphSpectro(rate, originalAudio)
+graphSpectro(rate, filteredAudio)
 
 
-f, t, Sxx = sciSig.spectrogram(audio, rate)
-matp.pcolormesh(t, f, numpy.log10(Sxx))
-matp.ylabel('Frequency [Hz]')
-matp.xlabel('Time [sec]')
-matp.colorbar()
-matp.show()
 
-# A razon de los valores obtenidos anteriormente, se conforma un arreglo de tiempos con ayuda de la funcion
-# linspace de numpy, el cual toma como entrada: (valor del primer elemento, valor del ultimo elemento, total de elementos)
-time = numpy.linspace(0,len(audio)/rate, num=len(audio))
-
-#Filtro pasa banda, de la frecuencia 500 a 1300
-filter = sciSig.firwin(60, [500, 1300], pass_zero=False, fs=rate)
-
-convolve = sciSig.convolve(filter, audio, mode='valid')
-
-# Se calcula la tranformada de fourier a partir de las amplitudes del audio, por medio de la funcion fft de numpy.
-fourier = numpy.fft.fft(convolve)
-# --DUDA--
-# Se utiliza la funcion fftfreq para obtener un arreglo compuesto por el rango de frecuencias del audio.
-fourierFreq = numpy.fft.fftfreq(len(convolve), 1/rate)
-
-# Se obtiene la transformada de fourier inversa de lo obtenido en el punto anterior. Esto por medio de la funcion ifft de numpy.
-fourierInv = numpy.fft.ifft(fourier)
-
-graph(fourierFreq,numpy.abs(fourier),"Gráfico amplitud vs frecuencia: Transformada de Fourier", "Amplitud", "Frecuencia (Hz)")
-
-graph(time, fourierInv,"Gráfico amplitud vs tiempo: Transformado", "Amplitud", "Tiempo (s)")
-
-f, t, Sxx = sciSig.spectrogram(fourierInv, rate)
-matp.pcolormesh(t, f, numpy.log10(Sxx))
-matp.ylabel('Frequency [Hz]')
-matp.xlabel('Time [sec]')
-matp.colorbar()
-matp.show()
